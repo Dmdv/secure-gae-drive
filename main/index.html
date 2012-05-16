@@ -1,0 +1,133 @@
+<html>
+<head>
+    <link type="text/css" rel="stylesheet" href="css/main.css" />
+    <script type="text/javascript" src="http://crypto-js.googlecode.com/files/2.5.3-crypto-sha1-hmac-pbkdf2-blockmodes-aes.js"></script>
+    <script src="//ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js" type="text/javascript"></script>
+    <script type="text/javascript">
+        // TODO: error handling if wrong password given (unable to even decrypt file names properly)
+        var password;  // TODO ask the user to enter, store in client-side storage (if user confirms)
+
+        if (!window.BlobBuilder && window.WebKitBlobBuilder)
+            window.BlobBuilder = window.WebKitBlobBuilder;
+        if (!window.BlobBuilder && window.MozBlobBuilder)
+            window.BlobBuilder = window.MozBlobBuilder;
+
+        if (!window.URL && window.webkitURL)
+            window.URL = window.webkitURL;
+
+        const contents = [
+        {% for file in files %}
+            {
+                name:'{{file.name}}',
+                blob:'{{file.blob.key()}}',
+                type:'{{file.type}}',
+                iv:'{{file.iv}}'
+            },
+        {% endfor %}
+        ];
+
+
+        function uploadEncryptedFile(file) {
+            const fileReader = new FileReader();
+            fileReader.onloadend = function(evt) {
+                const bytes = new Uint8Array(fileReader.result);
+
+                // Encrypt; generate IV ourselves
+                // otherwise AES will try to concat IV with Uint8Array, and it does not work.
+                const iv = Crypto.util.randomBytes(Crypto.AES._blocksize * 4);
+                // Encrypts in-place: bytes will be encrypted after 'encrypt'
+                Crypto.AES.encrypt(bytes, password, {asBytes:true, iv:iv});
+
+                // Convert data as Uint8Array to Blob, because silly FormData only accepts Blob or File
+                const builder = new BlobBuilder();
+                // Append ArrayBuffer - silly browsers don't accept Uint8Array on top of ArrayBuffer
+                builder.append(fileReader.result);
+                const blob = builder.getBlob('application/octet-stream');
+
+
+                const formData = new FormData();
+                formData.append('name', Crypto.AES.encrypt(file.name, password));
+                formData.append('type', Crypto.AES.encrypt(file.type, password));
+                formData.append('file', blob);
+                // we have to store IV ourselves, because encrypted data does not contain it.
+                formData.append('iv', Crypto.util.bytesToBase64(iv));
+
+
+                const xhr = new XMLHttpRequest();
+                xhr.open('POST', "{{ upload_url }}", true);
+                xhr.onload = function (e) {
+                    console.log('Done');
+                    window.location.href = '/'; // reload to see changes. TODO AJAX?
+                };
+                xhr.send(formData);  // multipart/form-data
+            };
+            fileReader.readAsArrayBuffer(file);
+        }
+
+
+        function upload() {
+            // TODO: make it work (.. must get blob upload url for every file?)
+            // TODO: see http://blog.notdot.net/2010/04/Implementing-a-dropbox-service-with-the-Blobstore-API-part-3-Multiple-upload-support
+            const fileChooser = document.getElementById('file');
+            for (var x = 0; x < fileChooser.files.length; x++) {
+                var file = fileChooser.files[x];
+                uploadEncryptedFile(file);
+            }
+        }
+
+
+        function download(key, type, ivEncoded) {
+            const iv = Crypto.util.base64ToBytes(ivEncoded);
+            const xhr = new XMLHttpRequest();
+            xhr.open('GET', '/download/' + key, true);
+            xhr.responseType = 'arraybuffer';
+            xhr.onload = function (e) {
+                if (this.status == 200) {
+                    const encrypted = new Uint8Array(this.response);
+                    // Decrypts in-place: this.response will be decrypted after 'decrypt'
+                    Crypto.AES.decrypt(encrypted, password, {asBytes:true, iv:iv});
+
+                    const builder = new BlobBuilder();
+                    // Append ArrayBuffer - silly browsers don't accept Uint8Array on top of ArrayBuffer
+                    builder.append(this.response);
+                    const blob = builder.getBlob(type);
+                    window.location.href = window.URL.createObjectURL(blob);
+                }
+            };
+            xhr.send();
+        }
+
+
+        function main() {
+            password = prompt("Enter the password:");
+            const filesDiv = document.getElementById('files');
+            for (var i=0; i<contents.length; i++) {
+                var f = contents[i];
+                var a = document.createElement('a');
+                a.innerHTML = Crypto.AES.decrypt(f.name, password);
+                a.setAttribute('href', 'javascript:download(' +
+                        '"' + f.blob + '",' +
+                        '"' + Crypto.AES.decrypt(f.type, password) + '",' +
+                        '"' + f.iv + '"' +
+                    ")"
+                );
+                filesDiv.appendChild(a);
+            }
+        }
+    </script>
+</head>
+
+
+<body onload="main()">
+
+Encrypt and upload file:
+<form>
+    <input id="file" type="file" multiple="" name="file"/>
+    <input type="button" value="Upload" onclick="upload()"/>
+</form>
+
+<div id="files">
+</div>
+
+</body>
+</html>
