@@ -4,6 +4,7 @@ runtime: python27
 api_version: 1
 threadsafe: true
 
+#test
 # .* handler must be at the end
 handlers:
 - url: /css
