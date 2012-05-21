@@ -5,3 +5,7 @@ body {
 a {
     display: block;
 }
+
+.ui-progressbar-value { background-color: green; }
+.ui-progressbar { height:2em; text-align: left; overflow: hidden; }
+.ui-progressbar .ui-progressbar-value {margin: -1px; height:100%; }

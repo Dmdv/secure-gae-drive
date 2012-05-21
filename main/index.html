@@ -3,6 +3,7 @@
     <link type="text/css" rel="stylesheet" href="css/main.css" />
     <script type="text/javascript" src="http://crypto-js.googlecode.com/files/2.5.3-crypto-sha1-hmac-pbkdf2-blockmodes-aes.js"></script>
     <script src="//ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js" type="text/javascript"></script>
+    <script src="//ajax.googleapis.com/ajax/libs/jqueryui/1.8.18/jquery-ui.min.js" type="text/javascript"></script>
     <script type="text/javascript">
         // TODO: error handling if wrong password given (unable to even decrypt file names properly)
         var password;  // TODO ask the user to enter, store in client-side storage (if user confirms)
@@ -26,6 +27,16 @@
         {% endfor %}
         ];
 
+
+        function updateProgress(evt) {
+            if (evt.lengthComputable)
+           {  //evt.loaded the bytes browser receive
+              //evt.total the total bytes seted by the header
+              //
+             var percentComplete = (evt.loaded / evt.total)*100;
+             $('#progressbar').progressbar( "option", "value", percentComplete);
+           }
+        }
 
         function uploadEncryptedFile(file) {
             const fileReader = new FileReader();
@@ -52,9 +63,11 @@
                 // we have to store IV ourselves, because encrypted data does not contain it.
                 formData.append('iv', Crypto.util.bytesToBase64(iv));
 
+                $('#progressbar').progressbar();
 
                 const xhr = new XMLHttpRequest();
                 xhr.open('POST', "{{ upload_url }}", true);
+                xhr.onprogress=updateProgress;
                 xhr.onload = function (e) {
                     console.log('Done');
                     window.location.href = '/'; // reload to see changes. TODO AJAX?
@@ -130,6 +143,9 @@ Encrypt and upload file:
     <input id="file" type="file" multiple="" name="file"/>
     <input type="button" value="Upload" onclick="upload()"/>
 </form>
+
+<div id="progressbar">
+</div>
 
 <div id="files">
 </div>
