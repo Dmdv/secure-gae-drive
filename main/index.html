@@ -99,7 +99,12 @@
 
 
         function main() {
-            password = prompt("Enter the password:");
+            password = localStorage["password"];
+            if (password == undefined) {
+                password = prompt("Enter the password: (TODO: dialog with checkbox [Remember])");
+                // TODO: check password
+                localStorage["password"] = password;
+            }
             const filesDiv = document.getElementById('files');
             for (var i=0; i<contents.length; i++) {
                 var f = contents[i];
