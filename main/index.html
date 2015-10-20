@@ -8,13 +8,7 @@
         // TODO: error handling if wrong password given (unable to even decrypt file names properly)
         var password;  // TODO ask the user to enter, store in client-side storage (if user confirms)
 
-        if (!window.BlobBuilder && window.WebKitBlobBuilder)
-            window.BlobBuilder = window.WebKitBlobBuilder;
-        if (!window.BlobBuilder && window.MozBlobBuilder)
-            window.BlobBuilder = window.MozBlobBuilder;
-
-        if (!window.URL && window.webkitURL)
-            window.URL = window.webkitURL;
+        window.URL = window.URL || window.webkitURL;
 
         const contents = [
         {% for file in files %}
@@ -49,12 +43,15 @@
                 // Encrypts in-place: bytes will be encrypted after 'encrypt'
                 Crypto.AES.encrypt(bytes, password, {asBytes:true, iv:iv});
 
+                /*
                 // Convert data as Uint8Array to Blob, because silly FormData only accepts Blob or File
                 const builder = new BlobBuilder();
                 // Append ArrayBuffer - silly browsers don't accept Uint8Array on top of ArrayBuffer
                 builder.append(fileReader.result);
                 const blob = builder.getBlob('application/octet-stream');
+                */
 
+                const blob = new Blob([ fileReader.result ]);
 
                 const formData = new FormData();
                 formData.append('name', Crypto.AES.encrypt(file.name, password));
@@ -100,10 +97,15 @@
                     // Decrypts in-place: this.response will be decrypted after 'decrypt'
                     Crypto.AES.decrypt(encrypted, password, {asBytes:true, iv:iv});
 
+/*
                     const builder = new BlobBuilder();
                     // Append ArrayBuffer - silly browsers don't accept Uint8Array on top of ArrayBuffer
                     builder.append(this.response);
                     const blob = builder.getBlob(type);
+*/
+                    // don't know how to do it better
+                    const blob = new Blob([encrypted], {type: type});
+
                     window.location.href = window.URL.createObjectURL(blob);
                 }
             };
